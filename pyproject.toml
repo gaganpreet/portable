@@ -6,6 +6,8 @@ authors = ["Gaganpreet <me@gaganpreet.in>"]
 
 [tool.poetry.dependencies]
 python = "^3.8"
+ytmusicapi = "^0.10.1"
+spotipy = "^2.16.1"
 
 [tool.poetry.dev-dependencies]
 
