@@ -2,7 +2,7 @@ import spotipy
 from spotipy.oauth2 import SpotifyOAuth
 from dataclasses import dataclass
 from pprint import pprint
-from typing import List
+from typing import List, Optional
 from ytmusicapi import YTMusic
 
 
@@ -15,8 +15,15 @@ class Artist:
 class Album:
     title: str
     artists: Artist
-    year: int
+    year: Optional[int]
     type_: str
+
+
+@dataclass
+class Track:
+    album: Optional[Album]
+    artist: Artist
+    title: str
 
 
 class YoutubeMusic:
@@ -28,6 +35,21 @@ class YoutubeMusic:
             Artist(name=artist["artist"])
             for artist in self.ytmusic.get_library_subscriptions()
         ]
+
+    def get_liked_songs(self):
+        tracks = []
+        for track_data in self.ytmusic.get_liked_songs()["tracks"]:
+            artist = Artist(name=track_data["artists"][0]["name"])
+            album = None
+            if track_data["album"]:
+                album = Album(
+                    title=track_data["album"]["name"],
+                    artists=artist,
+                    year=None,
+                    type_="Album",
+                )
+            tracks.append(Track(album=album, artist=artist, title=track_data["title"]))
+        return tracks
 
     def get_albums(self):
         album_data = self.ytmusic.get_library_albums(limit=25)
@@ -90,6 +112,15 @@ class Spotify:
         else:
             print(f"Ignoring unknown type {album}")
 
+    def like_track(self, track: Track):
+        query = f'artist:"{track.artist.name}"  track:"{track.title}"'
+        if track.album:
+            query += f' album:"{track.album.title}"'
+        item = self._get_first_search_result(query, "track")
+        id = item["id"]
+        if not self.spotipy.current_user_saved_tracks_contains(tracks=[id]):
+            self.spotipy.current_user_saved_tracks_add(tracks=[id])
+
     def subscribe_to_artist(self, artist: Artist):
         query = f'artist:"{artist.name}"'
         item = self._get_first_search_result(query, "artist")
@@ -104,8 +135,10 @@ def main():
     spotify = Spotify()
     # for album in yt.get_albums()[:5]:
     #    spotify.add_album(album)
-    for artist in yt.get_subscribed_artists():
-        spotify.subscribe_to_artist(artist)
+    # for artist in yt.get_subscribed_artists():
+    #    spotify.subscribe_to_artist(artist)
+    for track in yt.get_liked_songs():
+        pprint(spotify.like_track(track))
 
 
 if __name__ == "__main__":
