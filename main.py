@@ -118,7 +118,7 @@ class Spotify:
             query += f' album:"{track.album.title}"'
         item = self._get_first_search_result(query, "track")
         id = item["id"]
-        if not self.spotipy.current_user_saved_tracks_contains(tracks=[id]):
+        if not self.spotipy.current_user_saved_tracks_contains(tracks=[id])[0]:
             self.spotipy.current_user_saved_tracks_add(tracks=[id])
 
     def subscribe_to_artist(self, artist: Artist):
@@ -137,7 +137,7 @@ def main():
     #    spotify.add_album(album)
     # for artist in yt.get_subscribed_artists():
     #    spotify.subscribe_to_artist(artist)
-    for track in yt.get_liked_songs():
+    for track in yt.get_liked_songs()[:1]:
         pprint(spotify.like_track(track))
 
 
