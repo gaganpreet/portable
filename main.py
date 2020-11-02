@@ -15,22 +15,25 @@ class Artist:
 class Album:
     title: str
     artists: Artist
-    year: Optional[int]
     type_: str
+    year: Optional[int] = None
 
 
 @dataclass
 class Track:
-    album: Optional[Album]
     artist: Artist
     title: str
+    album: Optional[Album] = None
 
 
 @dataclass
 class Playlist:
     title: str
     id: str
-    count: Optional[int]
+    tracks: List[Track]
+    public: bool
+    description: Optional[str] = None
+    count: Optional[int] = None
 
 
 class YoutubeMusic:
@@ -45,13 +48,22 @@ class YoutubeMusic:
 
     def get_playlists(self):
         playlists = []
-        for playlist_data in self.ytmusic.get_library_playlists():
+        for basic_playlist_data in self.ytmusic.get_library_playlists()[:2]:
+            playlist_id = basic_playlist_data["playlistId"]
+            playlist_data = self.ytmusic.get_playlist(playlist_id)
+            public = True if playlist_data["privacy"] == "PUBLIC" else False
             pprint(playlist_data)
             playlists.append(
                 Playlist(
-                    title=playlist_data["title"],
-                    id=playlist_data["playlistId"],
-                    count=int(playlist_data.get("count", 0)),
+                    title=basic_playlist_data["title"],
+                    id=basic_playlist_data["playlistId"],
+                    count=int(playlist_data.get("trackCount", 0)),
+                    public=public,
+                    description=playlist_data.get("description", None),
+                    tracks=[
+                        self._track_data_to_track(track_data)
+                        for track_data in playlist_data["tracks"]
+                    ],
                 )
             )
         return playlists
@@ -69,7 +81,7 @@ class YoutubeMusic:
             )
         return Track(album=album, artist=artist, title=track_data["title"])
 
-    def get_playlist_tracks(self, playlist: Playlist):
+    def _get_playlist_tracks(self, playlist: Playlist):
         return [
             self._track_data_to_track(track_data)
             for track_data in self.ytmusic.get_playlist(playlist.id)["tracks"]
@@ -189,7 +201,7 @@ def main():
     # for track in yt.get_liked_songs()[:1]:
     #   pprint(spotify.like_track(track))
     for playlist in yt.get_playlists()[:2]:
-        spotify.create_playlist(playlist, yt.get_playlist_tracks(playlist))
+        pprint(playlist)
 
 
 if __name__ == "__main__":
