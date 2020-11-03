@@ -1,4 +1,5 @@
 import spotipy
+from functools import lru_cache
 from spotipy.oauth2 import SpotifyOAuth
 from dataclasses import dataclass
 from pprint import pprint
@@ -168,6 +169,22 @@ class Spotify:
         if not self.spotipy.current_user_saved_tracks_contains(tracks=[id])[0]:
             self.spotipy.current_user_saved_tracks_add(tracks=[id])
 
+    @lru_cache
+    def get_playlists(self):
+        offset = 0
+        limit = 50
+        playlists, has_more = self._get_playlist_from_offset(offset, limit)
+        while has_more is True:
+            offset += limit
+            next_set_playlists, has_more = self._get_playlist_from_offset(offset, limit)
+            playlists.extend(next_set_playlists)
+        return playlists
+
+    def _get_playlist_from_offset(self, offset: int, limit: int):
+        playlists = self.spotipy.current_user_playlists(limit=limit, offset=offset)
+        print(playlists["total"], offset + limit)
+        return playlists["items"], playlists["total"] > offset + limit
+
     def ensure_playlist_exists(self, playlist: Playlist) -> Playlist:
         print(
             self.spotipy.user_playlist_create(
@@ -201,7 +218,7 @@ def main():
     # for track in yt.get_liked_songs()[:1]:
     #   pprint(spotify.like_track(track))
     for playlist in yt.get_playlists()[:2]:
-        pprint(playlist)
+        pprint(spotify.get_playlists())
 
 
 if __name__ == "__main__":
