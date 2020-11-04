@@ -8,6 +8,7 @@ authors = ["Gaganpreet <me@gaganpreet.in>"]
 python = "^3.8"
 ytmusicapi = "^0.10.1"
 spotipy = "^2.16.1"
+fuzzywuzzy = "^0.18.0"
 
 [tool.poetry.dev-dependencies]
 
