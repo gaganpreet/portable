@@ -1,4 +1,5 @@
 import spotipy
+from fuzzywuzzy import process
 from functools import lru_cache
 from spotipy.oauth2 import SpotifyOAuth
 from dataclasses import dataclass
@@ -132,12 +133,20 @@ class Spotify:
             )
         )
 
-    def _get_first_search_result(self, query, type):
-        result = self.spotipy.search(query, type=type)
-        key = f"{type}s"
+    def _get_best_match_result(self, query, type_, original_query):
+        result = self.spotipy.search(query, type_=type_)
+        key = f"{type_}s"
         total, items = result[key]["total"], result[key]["items"]
         if total != 1:
-            print(f"Found {total} results for {query}, expected 1. Using first result")
+            if not original_query:
+                print(
+                    f"Found {total} results for {query}, expected 1. Using first result"
+                )
+                return items[0]
+            else:
+                return process.extractOne(
+                    original_query, items, processor=lambda item: item.name
+                )
         return items[0]
 
     def get_albums(self):
@@ -147,13 +156,13 @@ class Spotify:
         query = f'artist:"{track.artist.name}"  track:"{track.title}"'
         if track.album:
             query += f' album:"{track.album.title}"'
-        item = self._get_first_search_result(query, "track")
+        item = self._get_best_match_result(query, "track", track.title)
         return item
 
     def add_album(self, album: Album):
         if album.type_ in ["Album", "EP"]:
             query = f'artist:"{album.artists.name}" album:"{album.title}"'
-            item = self._get_first_search_result(query, "album")
+            item = self._get_best_match_result(query, "album", album.title)
             id = item["id"]
             if not self.spotipy.current_user_saved_albums_contains(albums=[id])[0]:
                 print(f"Adding {album} to collection")
@@ -201,7 +210,7 @@ class Spotify:
 
     def subscribe_to_artist(self, artist: Artist):
         query = f'artist:"{artist.name}"'
-        item = self._get_first_search_result(query, "artist")
+        item = self._get_best_match_result(query, "artist", artist.name)
         id = item["id"]
         if not self.spotipy.current_user_following_artists(ids=[id])[0]:
             print(f"Following {artist}")
