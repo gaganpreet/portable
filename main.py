@@ -15,7 +15,7 @@ class Artist:
 
 @dataclass
 class Album:
-    title: str
+    name: str
     artists: Artist
     type_: str
     year: Optional[int] = None
@@ -24,13 +24,13 @@ class Album:
 @dataclass
 class Track:
     artist: Artist
-    title: str
+    name: str
     album: Optional[Album] = None
 
 
 @dataclass
 class Playlist:
-    title: str
+    name: str
     id: str
     tracks: List[Track]
     public: bool
@@ -57,7 +57,7 @@ class YoutubeMusic:
             pprint(playlist_data)
             playlists.append(
                 Playlist(
-                    title=basic_playlist_data["title"],
+                    name=basic_playlist_data["title"],
                     id=basic_playlist_data["playlistId"],
                     count=int(playlist_data.get("trackCount", 0)),
                     public=public,
@@ -76,12 +76,12 @@ class YoutubeMusic:
         album = None
         if track_data["album"]:
             album = Album(
-                title=track_data["album"]["name"],
+                name=track_data["album"]["name"],
                 artists=artist,
                 year=None,
                 type_="Album",
             )
-        return Track(album=album, artist=artist, title=track_data["title"])
+        return Track(album=album, artist=artist, name=track_data["title"])
 
     def _get_playlist_tracks(self, playlist: Playlist):
         return [
@@ -106,7 +106,7 @@ class YoutubeMusic:
                 Album(
                     artists=artists,
                     year=album["year"],
-                    title=album["title"],
+                    name=album["title"],
                     type_=album["type"],
                 )
             )
@@ -153,16 +153,16 @@ class Spotify:
         return self.spotipy.current_user_saved_albums()
 
     def _find_track(self, track: Track):
-        query = f'artist:"{track.artist.name}"  track:"{track.title}"'
+        query = f'artist:"{track.artist.name}"  track:"{track.name}"'
         if track.album:
-            query += f' album:"{track.album.title}"'
-        item = self._get_best_match_result(query, "track", track.title)
+            query += f' album:"{track.album.name}"'
+        item = self._get_best_match_result(query, "track", track.name)
         return item
 
     def add_album(self, album: Album):
         if album.type_ in ["Album", "EP"]:
-            query = f'artist:"{album.artists.name}" album:"{album.title}"'
-            item = self._get_best_match_result(query, "album", album.title)
+            query = f'artist:"{album.artists.name}" album:"{album.name}"'
+            item = self._get_best_match_result(query, "album", album.name)
             id = item["id"]
             if not self.spotipy.current_user_saved_albums_contains(albums=[id])[0]:
                 print(f"Adding {album} to collection")
@@ -197,7 +197,7 @@ class Spotify:
     def ensure_playlist_exists(self, playlist: Playlist) -> Playlist:
         print(
             self.spotipy.user_playlist_create(
-                user=self.spotipy.me()["id"], name=f"{playlist.title} - Import"
+                user=self.spotipy.me()["id"], name=f"{playlist.name} - Import"
             )
         )
 
