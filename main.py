@@ -1,3 +1,4 @@
+from abc import ABC, abstractmethod
 import spotipy
 from fuzzywuzzy import process
 from functools import lru_cache
@@ -38,9 +39,55 @@ class Playlist:
     count: Optional[int] = None
 
 
-class YoutubeMusic:
+class MusicLibrary(ABC):
+    @abstractmethod
+    def get_subscribed_artists(self) -> List[Artist]:
+        pass
+
+    @abstractmethod
+    def get_playlists(self) -> List[Playlist]:
+        pass
+
+    @abstractmethod
+    def get_liked_songs(self) -> List[Track]:
+        pass
+
+    @abstractmethod
+    def get_albums(self) -> List[Album]:
+        ...
+
+    @abstractmethod
+    def add_album(self, album: Album):
+        pass
+
+    @abstractmethod
+    def like_track(self, track: Track):
+        pass
+
+    @abstractmethod
+    def subscribe_to_artist(self, artist: Artist):
+        pass
+
+    @abstractmethod
+    def create_playlist(self, playlist: Playlist, tracks: List[Track]):
+        pass
+
+
+class YoutubeMusic(MusicLibrary):
     def __init__(self):
         self.ytmusic = YTMusic("headers_auth.json")
+
+    def add_album(self, album: Album):
+        raise NotImplementedError()
+
+    def like_track(self, track: Track):
+        raise NotImplementedError()
+
+    def subscribe_to_artist(self, artist: Artist):
+        raise NotImplementedError()
+
+    def create_playlist(self, playlist: Playlist, tracks: List[Track]):
+        raise NotImplementedError()
 
     def get_subscribed_artists(self):
         return [
@@ -70,25 +117,6 @@ class YoutubeMusic:
             )
         return playlists
 
-    @staticmethod
-    def _track_data_to_track(track_data) -> Track:
-        artist = Artist(name=track_data["artists"][0]["name"])
-        album = None
-        if track_data["album"]:
-            album = Album(
-                name=track_data["album"]["name"],
-                artists=artist,
-                year=None,
-                type_="Album",
-            )
-        return Track(album=album, artist=artist, name=track_data["title"])
-
-    def _get_playlist_tracks(self, playlist: Playlist):
-        return [
-            self._track_data_to_track(track_data)
-            for track_data in self.ytmusic.get_playlist(playlist.id)["tracks"]
-        ]
-
     def get_liked_songs(self):
         tracks = []
         for track_data in self.ytmusic.get_liked_songs()["tracks"]:
@@ -112,8 +140,27 @@ class YoutubeMusic:
             )
         return albums
 
+    @staticmethod
+    def _track_data_to_track(track_data) -> Track:
+        artist = Artist(name=track_data["artists"][0]["name"])
+        album = None
+        if track_data["album"]:
+            album = Album(
+                name=track_data["album"]["name"],
+                artists=artist,
+                year=None,
+                type_="Album",
+            )
+        return Track(album=album, artist=artist, name=track_data["title"])
 
-class Spotify:
+    def _get_playlist_tracks(self, playlist: Playlist):
+        return [
+            self._track_data_to_track(track_data)
+            for track_data in self.ytmusic.get_playlist(playlist.id)["tracks"]
+        ]
+
+
+class Spotify(MusicLibrary):
     scopes = ",".join(
         [
             "playlist-read-private",
@@ -133,6 +180,12 @@ class Spotify:
             )
         )
 
+    def get_subscribed_artists(self) -> List[Artist]:
+        raise NotImplementedError()
+
+    def get_liked_songs(self) -> List[Track]:
+        raise NotImplementedError()
+
     def _get_best_match_result(self, query, type_, original_query):
         result = self.spotipy.search(query, type_=type_)
         key = f"{type_}s"
@@ -151,13 +204,6 @@ class Spotify:
 
     def get_albums(self):
         return self.spotipy.current_user_saved_albums()
-
-    def _find_track(self, track: Track):
-        query = f'artist:"{track.artist.name}"  track:"{track.name}"'
-        if track.album:
-            query += f' album:"{track.album.name}"'
-        item = self._get_best_match_result(query, "track", track.name)
-        return item
 
     def add_album(self, album: Album):
         if album.type_ in ["Album", "EP"]:
@@ -193,6 +239,13 @@ class Spotify:
         playlists = self.spotipy.current_user_playlists(limit=limit, offset=offset)
         print(playlists["total"], offset + limit)
         return playlists["items"], playlists["total"] > offset + limit
+
+    def _find_track(self, track: Track):
+        query = f'artist:"{track.artist.name}"  track:"{track.name}"'
+        if track.album:
+            query += f' album:"{track.album.name}"'
+        item = self._get_best_match_result(query, "track", track.name)
+        return item
 
     def ensure_playlist_exists(self, playlist: Playlist) -> Playlist:
         print(
