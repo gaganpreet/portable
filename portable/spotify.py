@@ -1,4 +1,5 @@
 from functools import lru_cache
+from pprint import pprint
 from typing import List
 import spotipy
 from fuzzywuzzy import process
@@ -35,10 +36,17 @@ class SpotifyLibrary(MusicLibrary):
         raise NotImplementedError()
 
     def _get_best_match_result(self, query, type_, original_query):
-        result = self.spotipy.search(query, type_=type_)
+        result = self.spotipy.search(query, type=type_)
         key = f"{type_}s"
         total, items = result[key]["total"], result[key]["items"]
-        if total != 1:
+        if total == 0:
+            print(f"No results for {query}")
+            if "'" in query:
+                result = self.spotipy.search(query.replace("'", ""), type=type_)
+                total, items = result[key]["total"], result[key]["items"]
+            if total == 0:
+                return
+        if total >= 1:
             if not original_query:
                 print(
                     f"Found {total} results for {query}, expected 1. Using first result"
@@ -46,8 +54,8 @@ class SpotifyLibrary(MusicLibrary):
                 return items[0]
             else:
                 return process.extractOne(
-                    original_query, items, processor=lambda item: item.name
-                )
+                    original_query, items  # , processor=lambda item: item["name"]
+                )[0]
         return items[0]
 
     def get_albums(self):
@@ -55,22 +63,23 @@ class SpotifyLibrary(MusicLibrary):
 
     def add_album(self, album: Album):
         if album.type_ in ["Album", "EP"]:
-            query = f'artist:"{album.artists.name}" album:"{album.name}"'
+            query = f'artist:"{album.artists.name}" "{album.name}"'
             item = self._get_best_match_result(query, "album", album.name)
             id = item["id"]
             if not self.spotipy.current_user_saved_albums_contains(albums=[id])[0]:
                 print(f"Adding {album} to collection")
                 self.spotipy.current_user_saved_albums_add(albums=[id])
             else:
-                print(f"Not adding {album} to collection")
+                print(f"{album} already exists in collection")
         else:
             print(f"Ignoring unknown type {album}")
 
     def like_track(self, track: Track):
         item = self._find_track(track)
-        id = item["id"]
-        if not self.spotipy.current_user_saved_tracks_contains(tracks=[id])[0]:
-            self.spotipy.current_user_saved_tracks_add(tracks=[id])
+        if item:
+            id = item["id"]
+            if not self.spotipy.current_user_saved_tracks_contains(tracks=[id])[0]:
+                self.spotipy.current_user_saved_tracks_add(tracks=[id])
 
     @lru_cache
     def get_playlists(self):
@@ -85,29 +94,56 @@ class SpotifyLibrary(MusicLibrary):
 
     def _get_playlist_from_offset(self, offset: int, limit: int):
         playlists = self.spotipy.current_user_playlists(limit=limit, offset=offset)
-        print(playlists["total"], offset + limit)
         return playlists["items"], playlists["total"] > offset + limit
 
     def _find_track(self, track: Track):
-        query = f'artist:"{track.artist.name}"  track:"{track.name}"'
+        query = f'{track.name} artist:"{track.artist.name}"'
         if track.album:
             query += f' album:"{track.album.name}"'
         item = self._get_best_match_result(query, "track", track.name)
+        if not item:
+            # Fall back queries with other combinations
+            query = f'{track.name} artist:"{track.artist.name}"'
+            item = self._get_best_match_result(query, "track", track.name)
+            if not item and track.album:
+                query += f'{track.name} album:"{track.album.name}"'
+                item = self._get_best_match_result(query, "track", track.name)
+            if not item:
+                query = f"{track.name}"
+                item = self._get_best_match_result(query, "track", track.name)
         return item
 
-    def ensure_playlist_exists(self, playlist: Playlist) -> Playlist:
-        print(
-            self.spotipy.user_playlist_create(
-                user=self.spotipy.me()["id"], name=f"{playlist.name} - Import"
+    def _ensure_playlist_exists(self, playlist: Playlist) -> Playlist:
+        matched_spotify_playlist = None
+        for spotify_playlist in self.get_playlists():
+            if spotify_playlist["name"] == playlist.name:
+                print(
+                    f"Playlist {playlist.name} already exists, tracks will be added to this existing playlist"
+                )
+                matched_spotify_playlist = spotify_playlist
+        if not matched_spotify_playlist:
+            matched_spotify_playlist = self.spotipy.user_playlist_create(
+                user=self.spotipy.me()["id"],
+                name=f"{playlist.name}",
+                public=playlist.public,
             )
+        return Playlist(
+            name=matched_spotify_playlist["name"],
+            id=matched_spotify_playlist["id"],
+            tracks=[],
+            count=matched_spotify_playlist["tracks"]["total"],
+            public=matched_spotify_playlist["public"],
         )
 
     def add_tracks(self, playlist: Playlist, tracks: List[Track]):
-        ...
+        for track in tracks:
+            item = self._find_track(track=track)
+            if item:
+                self.spotipy.playlist_add_items(playlist.id, items=[item["id"]])
 
-    def create_playlist(self, playlist: Playlist, tracks: List[Track]):
-        created_playlist = self.ensure_playlist_exists(playlist)
-        self.add_tracks(created_playlist, tracks)
+    def create_playlist(self, playlist: Playlist):
+        created_playlist = self._ensure_playlist_exists(playlist)
+        self.add_tracks(created_playlist, playlist.tracks)
 
     def subscribe_to_artist(self, artist: Artist):
         query = f'artist:"{artist.name}"'

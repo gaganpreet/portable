@@ -19,7 +19,7 @@ class YoutubeMusicLibrary(MusicLibrary):
     def subscribe_to_artist(self, artist: Artist):
         raise NotImplementedError()
 
-    def create_playlist(self, playlist: Playlist, tracks: List[Track]):
+    def create_playlist(self, playlist: Playlist):
         raise NotImplementedError()
 
     def get_subscribed_artists(self):
@@ -34,7 +34,6 @@ class YoutubeMusicLibrary(MusicLibrary):
             playlist_id = basic_playlist_data["playlistId"]
             playlist_data = self.ytmusic.get_playlist(playlist_id)
             public = True if playlist_data["privacy"] == "PUBLIC" else False
-            pprint(playlist_data)
             playlists.append(
                 Playlist(
                     name=basic_playlist_data["title"],
@@ -61,8 +60,7 @@ class YoutubeMusicLibrary(MusicLibrary):
         album_data = self.ytmusic.get_library_albums(limit=25)
         albums: List[Album] = []
         for album in album_data:
-            # Can album['artists'] be a list?
-            artists = Artist(album["artists"]["name"])
+            artists = Artist(album["artists"][0]["name"])
             albums.append(
                 Album(
                     artists=artists,

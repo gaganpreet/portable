@@ -33,5 +33,5 @@ class MusicLibrary(ABC):
         pass
 
     @abstractmethod
-    def create_playlist(self, playlist: Playlist, tracks: List[Track]):
+    def create_playlist(self, playlist: Playlist):
         pass
