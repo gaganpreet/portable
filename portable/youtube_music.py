@@ -22,6 +22,9 @@ class YoutubeMusicLibrary(MusicLibrary):
     def create_playlist(self, playlist: Playlist):
         raise NotImplementedError()
 
+    def add_tracks_to_playlist(self, playlist: Playlist, tracks: List[Track]):
+        return super().add_tracks_to_playlist(playlist, tracks)
+
     def get_subscribed_artists(self):
         return [
             Artist(name=artist["artist"])
