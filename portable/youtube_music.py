@@ -33,9 +33,9 @@ class YoutubeMusicLibrary(MusicLibrary):
 
     def get_playlists(self):
         playlists = []
-        for basic_playlist_data in self.ytmusic.get_library_playlists(limit=1000)[:2]:
+        for basic_playlist_data in self.ytmusic.get_library_playlists(limit=1000):
             playlist_id = basic_playlist_data["playlistId"]
-            playlist_data = self.ytmusic.get_playlist(playlist_id)
+            playlist_data = self.ytmusic.get_playlist(playlist_id, limit=1000)
             public = True if playlist_data["privacy"] == "PUBLIC" else False
             playlists.append(
                 Playlist(
