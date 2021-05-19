@@ -43,8 +43,21 @@ class SpotifyLibrary(MusicLibrary):
 
     def add_album(self, album: Album):
         if album.type_ in ["Album", "EP"]:
-            query = f'artist:"{album.artists.name}" "{album.name}"'
-            item = self._get_best_match_result(query, "album", album.name)
+            queries = [
+                f'artist:"{album.artists.name}" album:"{album.name}"',
+                f'album:"{album.name}" {album.artists.name}',
+                f"{album.name} artist:{album.artists.name}",
+                album.name,
+            ]
+            item = None
+            for query in queries:
+                item = self._get_best_match_result(query, "album", album.name)
+                if item:
+                    break
+            if not item:
+                print(f"{album.name} by {album.artists.name} not found")
+                return
+
             id = item["id"]
             if not self.spotipy.current_user_saved_albums_contains(albums=[id])[0]:
                 print(f"Adding {album} to collection")
