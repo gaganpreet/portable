@@ -1,5 +1,6 @@
 from functools import lru_cache
 from pprint import pprint
+import re
 from typing import List
 import spotipy
 from fuzzywuzzy import process
@@ -132,9 +133,17 @@ class SpotifyLibrary(MusicLibrary):
             for artist_query in artist_queries:
                 for album_query in album_queries:
                     query = " ".join([track_query, artist_query, album_query])
+                    query_without_parentheses = re.sub(r"\([^\)]*\)", "", query)
                     item = self._get_best_match_result(query, "track", track.name)
                     if item:
                         return item
+                    if query_without_parentheses != query:
+                        item = self._get_best_match_result(
+                            query_without_parentheses, "track", track.name
+                        )
+                        if item:
+                            return item
+
         print(f"No results for {track.name}")
         return
 
