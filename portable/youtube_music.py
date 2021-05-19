@@ -28,12 +28,12 @@ class YoutubeMusicLibrary(MusicLibrary):
     def get_subscribed_artists(self):
         return [
             Artist(name=artist["artist"])
-            for artist in self.ytmusic.get_library_subscriptions()
+            for artist in self.ytmusic.get_library_subscriptions(limit=10000)
         ]
 
     def get_playlists(self):
         playlists = []
-        for basic_playlist_data in self.ytmusic.get_library_playlists()[:2]:
+        for basic_playlist_data in self.ytmusic.get_library_playlists(limit=1000)[:2]:
             playlist_id = basic_playlist_data["playlistId"]
             playlist_data = self.ytmusic.get_playlist(playlist_id)
             public = True if playlist_data["privacy"] == "PUBLIC" else False
@@ -54,13 +54,13 @@ class YoutubeMusicLibrary(MusicLibrary):
 
     def get_liked_songs(self):
         tracks = []
-        for track_data in self.ytmusic.get_liked_songs()["tracks"]:
+        for track_data in self.ytmusic.get_liked_songs(limit=10000)["tracks"]:
             track = self._track_data_to_track(track_data)
             tracks.append(track)
         return tracks
 
     def get_albums(self):
-        album_data = self.ytmusic.get_library_albums(limit=25)
+        album_data = self.ytmusic.get_library_albums(limit=10000)
         albums: List[Album] = []
         for album in album_data:
             artists = Artist(album["artists"][0]["name"])
